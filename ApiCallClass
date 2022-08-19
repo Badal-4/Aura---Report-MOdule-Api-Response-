@@ -1,0 +1,137 @@
+public without sharing class AccController {
+
+
+    /**
+     * Function for calling REST Services with POST
+     * @param source        General values for the REST endpoint as defined in the corresponding RESTEndpoint__mdt
+     * @param method        The REST method to be called
+     * @param request_body  Request body with the parameters required for the call. In JSON format. E.g. '{fundid:'ABCDE-S'}'
+     * @param require_fsym  Boolean value. If the factset fsym_id of the issuer is required, set it to true. Request_body will automatically extended.
+     * @return              Response body of the succesful call. In case of any error, the body will be set to a error message.
+     */
+    @AuraEnabled
+    public static AuraResponse getPostCallout(String source, String method, String request_body, Boolean require_fsym) {
+//    public static AuraResponse getPostCallout(String source, String method) {
+            AuraResponse auraResponse;
+        String jwt_payload;
+        String endpoint;
+//        String request_body = '';
+//        Boolean require_fsym = false;
+
+        try {
+            // Get metadata for REST Service 
+            List<RESTEndpoint__mdt> restEndpoint = [select id, jwt_payload__c, server__c from RESTEndpoint__mdt where DeveloperName=:source ];
+
+            if(restEndpoint != null && restEndpoint.size() == 1) {
+                // Set endpont from metadata
+                endpoint = restEndpoint[0].server__c + method;
+                // Create jwt payload with authentication
+                datetime dt = datetime.now().addminutes(30);
+                jwt_payload = '{' + restEndpoint[0].jwt_payload__c + ',"exp":'+dt.getTime()+'}';
+                // Create request body
+                if (require_fsym == true) {
+                    String prefix;
+                    // Check if fsym is the only parameter in the request body
+                    if (request_body.deleteWhitespace() == '{}') {
+                        // If yes the no comma
+                        prefix = '';
+                    } else {
+                        // If no, the comma as prefix
+                        prefix = ',';
+                    }
+                    // Extend request body if fsym is required
+                    String fsym = prefix + '"fsym": "'+ getFsymId()+'"}';
+                    request_body = request_body.replace('}', fsym);
+                } 
+//                request_body = '{"fsym": "TW997W-S"}';
+                HttpResponse response = AccRestCallout.makePostCallout(endpoint, request_body, jwt_payload);
+                System.debug(response.getBody());
+                auraResponse = new AuraResponse(true, 'SUCCESS', response.getBody());
+            } else {
+                auraResponse = new AuraResponse(false, 'ERROR', 'Unable to fetch RESTEndpoint metadata');
+            }
+            return auraResponse;
+        } catch(Exception ex) {
+            auraResponse = new AuraResponse(false, 'ERROR', ex.getMessage());
+            return auraResponse;
+        }
+    }
+
+
+    /**
+     * Method to get some base date about the issuer and user. 
+     * E.g. the issuers fsym_id, name of the issuer, subscription package ('Master', 'Basic', ...)
+     * @return  A wrapper object with the corresponding base data
+     */
+    @AuraEnabled
+    public static BaseDataWrapper getBaseData() {
+        BaseDataWrapper baseDataWrapper = new BaseDataWrapper();
+        user currentUser = [SELECT contactId,
+                            contact.fysm_Id__c, contact.Account.Name, contact.Account.Billing_Master__r.Name, contact.Account.id FROM User WHERE
+                                Id=:userInfo.getUserID()];
+        if(currentUser!=null) {
+            baseDataWrapper.fsymId = currentUser.contact.fysm_Id__c;
+            baseDataWrapper.accountName = currentUser.contact.Account.Name;
+            baseDataWrapper.packageName = currentUser.contact.Account.Billing_Master__r.Name;
+            baseDataWrapper.accountId = currentUser.contact.Account.id;
+            return baseDataWrapper;
+        } else {
+            return null;
+        }
+    }
+
+
+    /**
+     * Wrapper class for the base data
+     */
+    public class BaseDataWrapper{
+        @AuraEnabled
+        public String fsymId{get; set;}
+        @AuraEnabled
+        public String packageName{get; set;}
+        @AuraEnabled
+        public String accountName{get; set;}
+        @AuraEnabled
+        public String accountId{get; set;}
+    }
+
+
+    @AuraEnabled
+    public static PeerGroupWrapper getPeerData() {
+        PeerGroupWrapper peerGroupWrapper = new PeerGroupWrapper();
+        String result = '';
+        user currentUser = [SELECT contact.Account.id FROM User WHERE
+                                Id=:userInfo.getUserID()];
+        if(currentUser!=null) {
+            String accountId = currentUser.contact.Account.id;
+//            List<Peer_Group__c> peers = [SELECT Fsym_Id__c from Peer_Group__c where Peer_Group__c.Account__r.id = '0013N00000g4frkQAA'];
+            List<Peer_Group__c> peers = [SELECT Fsym_Id__c from Peer_Group__c where Peer_Group__c.Account__r.id =:accountId];
+            for(Peer_Group__c p: peers) {
+                result = result + ',' + p.Fsym_Id__c;
+            }    
+            peerGroupWrapper.peers = result.substring(1);
+        } else {
+            peerGroupWrapper.peers = null;
+        }
+        return peerGroupWrapper;
+    }
+
+    public class PeerGroupWrapper{
+        @AuraEnabled
+        public String peers{get; set;}
+    }
+
+    /**
+     * Get the fsym_id from the current user. For internal purpose only.
+     */
+    private static string getFsymId() {
+        user currentUser = [SELECT contactId,
+                                contact.fysm_Id__c FROM User WHERE
+                                Id=:userInfo.getUserID()];
+        if(currentUser!=null) {
+            return currentUser.contact.fysm_Id__c;
+        }
+        return null;
+    }
+
+}
