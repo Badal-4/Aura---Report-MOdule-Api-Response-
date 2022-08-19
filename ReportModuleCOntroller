@@ -1,0 +1,31 @@
+({
+    doInit : function(component,event,helper)
+    {
+        var paramsData = window.location.href;
+        if(paramsData.includes('favourite-reports')){
+          component.set("v.reportType",'favourite-reports');
+        } else if(paramsData.includes('custom-reports')){
+          component.set("v.reportType",'custom-reports');
+        } else if(paramsData.includes('public-reports')){
+          component.set("v.reportType",'public-reports');
+        }
+        helper.getReportData(component);
+    },
+    handleClick : function(component,event,helper)
+    {   
+       let value = event.getParam("value");
+        if(value == 'Run'){
+          helper.handleRun(component,event,helper,event.getSource().get("v.name"),event.getSource().get("v.class"));
+        }
+        else if(value == 'Export'){
+           helper.getReportDetailPerReport(component,event,helper,event.getSource().get("v.class"));
+        }
+    },
+    updateFavourite : function(component,event,helper){
+        helper.updateFavourite(component,event,helper);
+    },
+    openReport : function(component,event,helper)
+    {
+      helper.handleRun(component,event,helper,event.target.id,event.target.className);
+    }
+ })
