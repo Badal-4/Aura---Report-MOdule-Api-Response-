@@ -1,0 +1,49 @@
+public with sharing class AccRestCallout {
+
+    public static HttpResponse makePostCallout(String endpoint, String request_body, String jwt_payload) {
+        string JWTKey = generateJWTToken();
+
+        Http http = new Http();
+        HttpRequest request = new HttpRequest();
+        request.setEndpoint(endpoint);
+        request.setMethod('POST');
+        request.setHeader('Content-Type', 'application/json;charset=UTF-8');
+        request.setBody(request_body);
+        request.setHeader('Authorization', 'Bearer '+ JWTKey);
+
+        HttpResponse response = http.send(request);
+        // Parse the JSON response
+        if(response.getStatusCode() != 200 || response.getStatusCode() != 201 ) {
+            System.debug('The status code returned was not expected: ' +
+                response.getStatusCode() + ' ' + response.getStatus());
+        } else {
+            System.debug(response.getBody());
+        }
+        return response;
+    }        
+
+
+    private static string generateJWTToken(){
+        datetime dt = datetime.now().addminutes(30);
+        System.debug(dt);
+        String header = '{"alg": "HS256","typ":"jwt"}';
+        String payload = '{"role":"rest_user","exp":'+dt.getTime()+'}';
+        string jwt = base64URLencode(blob.valueof(header)) + '.' +base64URLencode(blob.valueof(payload));
+        
+        Blob key = blob.valueof(system.label.JWT_Key);
+        blob signature = Crypto.generateMac('hmacSHA256',Blob.valueof(jwt),key);
+        string JWTString = jwt+'.'+base64URLencode(signature);
+        return JWTString ;
+    }
+
+    private static String base64URLencode(Blob input){ 
+        String output = encodingUtil.base64Encode(input);
+        output = output.replace('+', '-');
+        output = output.replace('/', '_');
+        while ( output.endsWith('=')){
+            output = output.subString(0,output.length()-1);
+        }
+        return output;
+    }
+
+}
