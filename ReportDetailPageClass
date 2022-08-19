@@ -1,0 +1,28 @@
+public without sharing class CustomerCommunity_ReportDetailCtrl {
+    @AuraEnabled
+    public static Wrapper getReportDetails(String reportId)
+    {
+        Wrapper wrap = new Wrapper();
+        List<AccniteReports__c> accList = new List<AccniteReports__c>();
+        accList = [Select Id,ColumnAttributeName__c,ColumnsName__c,Columns_Orientation__c,
+        Row_Filter__c,Name,Description__c,Category__c,LastAccessed__c,Favourite__c,Endpoint__c 
+        from AccniteReports__c
+        Where Id =: reportId];
+        if(!accList.isEmpty()){
+            AuraResponse response =AccController.getPostCallout('postgrest',accList[0].Endpoint__c,'{"fsym":"TW997W-S"}', false);
+            String res= System.JSON.serialize(response);
+            Map<String,Object> rawObj = (Map<String,Object>) JSON.deserializeUntyped(res);
+            wrap.response = (String)rawObj.get('response');
+            wrap.report = accList[0];
+        }
+        return wrap;
+    }
+
+    public class Wrapper 
+    {
+        @AuraEnabled
+        public string response{get;set;}
+        @AuraEnabled
+        public AccniteReports__c report{get;set;}
+    }
+}
