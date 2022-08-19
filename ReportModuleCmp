@@ -1,0 +1,63 @@
+<aura:component controller="CustomerCommunity_ReportModuleController" 
+implements="forceCommunity:themeLayout,force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,forceCommunity:availableForAllPageTypes"
+access="global" extends="c:CustomerCommunity_LoggedInUser_HeaderCmp">
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>  
+    <aura:attribute name="reportlist" type="AccniteReports__c[]"/>
+    <aura:attribute name="reportType" type="String" />
+   
+    <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+        <thead>
+            <tr>
+               
+                <th scope="col">
+                    <div class="slds-truncate" title="Report Id">Report Name</div>
+                </th>
+                <th scope="col">
+                    <div class="slds-truncate" title="Name">Description</div>
+                </th>
+                <th scope="col">
+
+                    <div class="slds-truncate" title="Name">Last accessed</div>
+                </th>
+                <th scope="col">
+
+                    <div class="slds-truncate" title="Name">Favourite</div>
+                </th>
+                <th scope="col">
+                    <div class="slds-truncate" title="Name">Action</div>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <aura:iteration items="{!v.reportlist}" var="reportVar" indexVar="index"  >
+                <tr>  
+                    <td scope="row">
+                        <a  class="{!reportVar.Id}"  onclick="{!c.openReport}" id="{!reportVar.Endpoint__c}" > 
+                            {!reportVar.Name}
+                        </a>
+                    </td>
+                    <td scope="row">
+                            {!reportVar.Description__c}
+                            
+                    </td>                    
+                    <td scope="row">
+                        
+                        {!reportVar.LastAccessed__c}
+
+                    </td>
+                    <td scope="row">
+                       
+                       <lightning:input type="checkbox"  name="input1" value="{!reportVar.Id}" checked="{!reportVar.Favourite__c == true}" onchange="{!c.updateFavourite}"/>
+
+                    </td>                    
+                    <td>
+                        <lightning:buttonMenu  name="{!reportVar.Endpoint__c}" class="{!reportVar.Id}" onselect="{!c.handleClick}">
+                            <lightning:menuItem label="Run" value="Run"/>
+                            <lightning:menuItem label="Export" value="Export"/>
+                        </lightning:buttonMenu> 
+                    </td>
+                </tr>
+            </aura:iteration> 
+        </tbody>
+    </table>
+</aura:component>
