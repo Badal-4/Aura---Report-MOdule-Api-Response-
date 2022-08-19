@@ -1,0 +1,104 @@
+public without sharing class CustomerCommunity_ReportModuleController
+{
+    public static Id portalContactId = [Select ContactId from User where Id =: UserInfo.getUserId()].ContactId;
+    
+    @auraEnabled
+    public static List<AccniteReports__c> getReportList(String reportType)
+    {
+        getRes();
+        List<AccniteReports__c> accList = new List<AccniteReports__c>();
+        if(reportType == 'custom-reports' || reportType == 'public-reports'){
+            accList = [Select Id,ColumnAttributeName__c,ColumnsName__c,Columns_Orientation__c,Row_Filter__c,Name,Description__c,Category__c,LastAccessed__c,Favourite__c,Endpoint__c from AccniteReports__c];
+        } else if(reportType == 'favourite-reports'){
+            accList = [Select Id,ColumnAttributeName__c,ColumnsName__c,Columns_Orientation__c,Row_Filter__c,Name,Description__c,Category__c,LastAccessed__c,Favourite__c,Endpoint__c from AccniteReports__c Where Favourite__c = true];
+        }
+        return accList;
+    }   
+
+    @AuraEnabled
+    public static CustomerCommunity_ReportDetailCtrl.Wrapper getReportDetails(String reportId){
+        return CustomerCommunity_ReportDetailCtrl.getReportDetails(reportId);
+    }
+
+    @auraEnabled
+    public static void updateFavCheckbox(String recordId)
+    {
+        List<AccniteReports__c> reportList = new List<AccniteReports__c>();
+        reportList = [Select Id,Favourite__c from AccniteReports__c where Id =: recordId];
+        for(AccniteReports__c acc : reportList){
+            acc.Favourite__c = (acc.Favourite__c ? false : true);
+        }
+        update reportList;
+    }
+ 
+   @AuraEnabled 
+   public static void updateLastAcc(Date d,String recordId)
+   {
+      if(d != null && String.isNotBlank(recordId)){
+        AccniteReports__c report = new AccniteReports__c();
+        report.Id = recordId;
+        report.LastAccessed__c = d;
+        update report;
+      }
+   }
+
+   public static void getRes()
+   {
+        List<AccniteReports__c> accReportsToInsert = new List<AccniteReports__c>();
+        AuraResponse response_obj = AccController.getPostCallout('postgrest','rep_get_report_list','{}', false);
+        List<Object> return_posts = (List<Object>)  JSON.deserializeUntyped(response_obj.response);
+        for(Object obj : return_posts){
+            Map<String,Object> rawObj = (Map<String,Object>) obj;
+            AccniteReports__c acc = new AccniteReports__c();
+            acc.Name = String.valueOf(rawObj.get('name'));
+            acc.Description__c = String.valueOf(rawObj.get('description'));
+            acc.ReportIdentifier__c = String.valueOf(rawObj.get('md5')+'_'+portalContactId);
+            acc.Endpoint__c = String.valueOf(rawObj.get('rest_endpoint'));
+            acc.Contact__c = portalContactId;
+            List<Object> split_arr = new List<Object>();
+            split_arr = (List<Object>) rawObj.get('column_names');
+            if(!split_arr.isEmpty()){
+                for(Object str: split_arr){
+                    acc.ColumnsName__c = (String.isNotBlank(acc.ColumnsName__c) ? acc.ColumnsName__c + String.valueOf(str) + ',' : String.valueOf(str) + ',');
+                }
+                acc.ColumnsName__c = acc.ColumnsName__c.removeEnd(',');
+            } else {
+                acc.ColumnsName__c = null;
+            }
+            split_arr.clear();
+            split_arr = (List<Object>) rawObj.get('columns');
+            if(!split_arr.isEmpty()){
+                for(Object str: split_arr){
+                    acc.ColumnAttributeName__c = (String.isNotBlank(acc.ColumnAttributeName__c) ? acc.ColumnAttributeName__c + String.valueOf(str) + ',' : String.valueOf(str) + ',');
+                }
+                acc.ColumnAttributeName__c = acc.ColumnAttributeName__c.removeEnd(',');
+            } else {
+                acc.ColumnAttributeName__c = null;
+            }
+            split_arr.clear();
+            split_arr = (List<Object>) rawObj.get('row_filters');
+            if(!split_arr.isEmpty()){
+                for(Object str: split_arr){
+                    acc.Row_Filter__c = (String.isNotBlank(acc.Row_Filter__c) ? acc.Row_Filter__c + String.valueOf(str) + ',' : String.valueOf(str) + ',');
+                }
+                acc.Row_Filter__c = acc.Row_Filter__c.removeEnd(',');
+            } else {
+                acc.Row_Filter__c = null;
+            }
+            split_arr.clear();
+            split_arr = (List<Object>) rawObj.get('columns_orientation');
+            if(!split_arr.isEmpty()){
+                for(Object str: split_arr){
+                    acc.Columns_Orientation__c = (String.isNotBlank(acc.Columns_Orientation__c) ? acc.Columns_Orientation__c + String.valueOf(str) + ',' : String.valueOf(str) + ',');
+                }
+                acc.Columns_Orientation__c = acc.Columns_Orientation__c.removeEnd(',');
+            } else {
+                acc.Columns_Orientation__c = null;
+            }
+            split_arr.clear();
+            acc.Active__c = Boolean.valueOf(rawObj.get('active'));
+            accReportsToInsert.add(acc);
+        }
+        upsert accReportsToInsert ReportIdentifier__c;
+   }
+}
