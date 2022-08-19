@@ -1,0 +1,192 @@
+({
+    getReportData : function(component) {        
+        var action=component.get('c.getReportList');     
+        action.setParams({
+            "reportType" : component.get("v.reportType")
+        });   
+        action.setCallback(this,function(response){   
+            if(response.getState()=='SUCCESS'){
+                var records = response.getReturnValue();
+                if(records){
+                    component.set("v.reportlist",response.getReturnValue());    
+                }         
+            }
+            else {
+                console.log('Error-->'+JSON.stringify(response.getError()));
+            }
+        });
+        $A.enqueueAction(action);        
+    },
+    getReportDetailPerReport : function(component, event,helper,recId) {        
+        var action = component.get("c.getReportDetails");
+        action.setParams({
+            "reportId" : recId
+        });
+        action.setCallback(this,function(response)
+        {
+            var state = response.getState();
+            if(state === "SUCCESS")
+            {
+                try {
+                    var result = response.getReturnValue();
+                    if(result && result.response){
+                        var r = JSON.parse(result.response);
+                        var cName = result.report.ColumnsName__c;
+                        var cName_lst;
+                        if(cName){
+                            cName_lst = cName.split(",");
+                        }
+                        var cAttributeName = result.report.ColumnAttributeName__c;
+                        var cAttribute_lst;
+                        if(cAttributeName){
+                            cAttribute_lst = cAttributeName.split(",");
+                        }
+                        var rowFilter = result.report.Row_Filter__c;
+                        var rowFilter_lst;
+                        if(rowFilter){
+                            rowFilter_lst = rowFilter.split(",");
+                        }
+                        var csv_data = [];
+                        if(!$A.util.isEmpty(cName_lst) ){
+                            var csvrow = [];
+                            for(var i=0;i<cName_lst.length; i++){
+                                csvrow.push('"'+cName_lst[i]+'"');                                
+                            }
+                            csv_data.push(csvrow.join(","));
+                        }
+                        for(var i=0;i<r.length; i++){
+                            var check = false;
+                            if(!$A.util.isEmpty(rowFilter_lst)){
+                                if(rowFilter_lst.includes(r[i].type)){
+                                    check = true;
+                                }
+                            } else {
+                                check = true;
+                            }
+
+                            if(check == true){
+                                if(!$A.util.isEmpty(cAttribute_lst) ){
+                                    var csvrow = [];
+                                    for (var j = 0; j < cAttribute_lst.length; j++) {
+                                        csvrow.push('"'+r[i][cAttribute_lst[j]]+'"');
+                                    }
+                                    csv_data.push(csvrow.join(","));
+                                }
+                            }
+                        }
+                        if(!$A.util.isEmpty(csv_data)){
+                            csv_data = csv_data.join('\n');
+                            var rcd = csv_data;
+                            helper.downloadCsv(component,event,helper,rcd,result.report.Name);
+                        }
+                    } 
+                  }
+                  catch(err) {
+                    console.log('--error-- '+err.message);
+                  }
+            }
+            else {
+                console.log('Error update-->'+JSON.stringify(response.getError()));
+            }
+        });
+        $A.enqueueAction(action);     
+    },
+    downloadCsv : function(component,event,helper,csv_data,name)
+    {
+            console.log(';::'+name);
+            var   blob = new Blob([csv_data], {
+                type: "text/plain"
+            });
+            var temp_link = document.createElement('a');
+            temp_link.download = name+'.csv';
+            var url = window.URL.createObjectURL(blob);
+            temp_link.href = url;
+            temp_link.style.display = "none";
+            document.body.appendChild(temp_link);
+            temp_link.click();
+            document.body.removeChild(temp_link);
+    },
+
+    updateFavourite : function(component,event,helper)
+    {
+        
+        var rcdId = event.getSource().get("v.value");
+        var action = component.get("c.updateFavCheckbox");
+        action.setParams({
+            "recordId" : rcdId
+        });
+        action.setCallback(this,function(response)
+        {
+            var state = response.getState();
+            if(state === "SUCCESS")
+            {
+                try{
+                    if(component.get("v.reportType") == 'favourite-reports'){
+                        var check = event.getSource().get("v.checked");
+                        if(!check){
+                            var rec_lst = [];
+                            rec_lst = component.get("v.reportlist");
+                            var final_rec_lst =[];
+                            if(rec_lst){
+                                for(var i=0; i< rec_lst.length; i++){
+                                    if(rec_lst[i].Id != rcdId){
+                                        final_rec_lst.push(rec_lst[i]);
+                                    }
+                                }
+                            }
+                            component.set("v.reportlist",final_rec_lst);
+                        }
+                    }
+                }   catch(err) {
+                    console.log('--error-- '+err.message);
+                }
+            }
+            else {
+                console.log('Error update-->'+JSON.stringify(response.getError()));
+            }
+        });
+        $A.enqueueAction(action);   
+       
+    },
+
+    handleRun : function(component,event,helper,endpoint, recId)
+    {
+        var url = window.location.origin + '/community/s/custom-report-detail?report='+recId;
+        window.open(url,'_blank');
+        helper.updateLastAcc(component,event,helper,recId);
+    },
+
+  updateLastAcc : function(component,event,helper,rcdId)
+  {     
+        var today = new Date();
+        var dd = String(today.getDate()).padStart(2, '0');
+        var mm = String(today.getMonth() + 1).padStart(2, '0');
+        var yyyy = today.getFullYear();
+        today = yyyy + '-' + mm + '-' + dd;
+        var action = component.get("c.updateLastAcc");
+        action.setParams({
+            "recordId" : rcdId,
+            "d" : today
+        });
+        action.setCallback(this,function(response)
+        {
+            var state = response.getState();
+            if(state === "SUCCESS")
+            {
+                var arr_reports = component.get("v.reportlist");
+                if(!$A.util.isEmpty(arr_reports)){
+                    for(var i=0; i < arr_reports.length; i++){
+                        if(arr_reports[i].Id == rcdId){
+                            arr_reports[i].LastAccessed__c = today;
+                        }
+                    }
+                    component.set("v.reportlist",arr_reports);
+                }
+            }
+            else {
+                console.log('Error update-->'+JSON.stringify(response.getError()));
+            }
+        });
+        $A.enqueueAction(action);   
+  }
+})
