@@ -1,0 +1,75 @@
+({
+doInit : function(component,event,helper)
+{
+    var paramsData = window.location.href.split('?');
+      var rcdID  = paramsData[1].split('=')[1];
+      component.set("v.reportId",rcdID);
+      var action = component.get("c.getReportDetails");
+      action.setParams({
+         "reportId" : component.get("v.reportId")
+      });
+      action.setCallback(this,function(response)
+      {
+          var state = response.getState();
+          if(state === "SUCCESS")
+          {
+             //var result=JSON.parse(JSON.stringify(response.getReturnValue()));
+             var result = response.getReturnValue();
+             if(result){
+                console.log('result :: '+JSON.stringify(result.response));
+                var r = JSON.parse(result.response);
+                component.set("v.resInfo",r);
+                if(!$A.util.isEmpty(result.report.ColumnsName__c) && !$A.util.isEmpty(result.report.ColumnAttributeName__c)){
+                    var cName = result.report.ColumnsName__c;
+                    component.set("v.columnName",cName.split(","));
+                    var cAttributeName = result.report.ColumnAttributeName__c;
+                    component.set("v.columnAttributeName",cAttributeName.split(","));
+                    var rowFilter = result.report.Row_Filter__c;
+                    component.set("v.rowFilter",rowFilter.split(","));
+                    var columnsOrientation = result.report.Columns_Orientation__c;
+                    component.set("v.columnsOrientation",columnsOrientation.split(","));
+                }
+             }             
+          }
+          else 
+          {
+              console.log('Error update-->'+JSON.stringify(response.getError()));
+          }
+      });
+      $A.enqueueAction(action);   
+},
+	handleClick : function(component, event, helper) {
+	  // Variable to store the final csv data
+            var csv_data = [];
+ 
+            // Get each row data
+            var rows = document.getElementsByTagName('tr');
+        
+            for (var i = 0; i < rows.length; i++) {
+ 
+                // Get each column data
+                var cols = rows[i].querySelectorAll('td,th');
+ 
+                // Stores each csv row data
+                var csvrow = [];
+                for (var j = 0; j < cols.length; j++) {
+ 
+                    // Get the text data of each cell
+                    // of a row and push it to csvrow
+                    csvrow.push(cols[j].innerHTML);
+                }
+ 
+                // Combine each column value with comma
+                csv_data.push(csvrow.join(","));
+            }
+ 
+            // Combine each row data with new line character
+            csv_data = csv_data.join('\n');
+             console.log('Data-->'+JSON.stringify(csv_data));
+        var rcd = csv_data;
+        console.log('rcd-->'+rcd);
+        helper.downloadCsv(component,helper,rcd);
+	},
+    
+    
+})
