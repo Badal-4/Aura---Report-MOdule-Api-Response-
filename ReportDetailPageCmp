@@ -1,0 +1,56 @@
+<aura:component implements="forceCommunity:themeLayout,force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,forceCommunity:availableForAllPageTypes"
+access="global" extends="c:CustomerCommunity_LoggedInUser_HeaderCmp" controller="CustomerCommunity_ReportDetailCtrl">
+<aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+<aura:attribute name="columnName" type="String[]"/>
+<aura:attribute name="columnAttributeName" type="String[]"/>
+<aura:attribute name="rowFilter" type="String[]"/>
+<aura:attribute name="columnsOrientation" type="String[]"/>
+<aura:attribute name="reportId" type="String"/>
+<aura:attribute name="resInfo" type="Object[]" />
+<aura:attribute name="recordList" type="List" access="global" default="['United States','United Kingdom','France','Germany','Sweden']"/>
+<aura:attribute name="sharesList" type="List" default="['15','35','8','2','10','25',95']"/>
+<div style="float:right">
+    <lightning:button iconName="utility:download" iconPosition="left" label="Export as CSV" onclick="{!c.handleClick}" class="slds-button slds-button_brand"/>        
+</div>
+<table class="slds-table slds-table_cell-buffer slds-table_bordered">
+    <thead>
+        <tr>
+            <aura:iteration items="{!v.columnName}" var="column">
+                <th scope="col">
+                    <div class="slds-truncate" title="{!column}">{!column}</div>
+                </th>
+            </aura:iteration>
+    </tr>
+    </thead>
+    <tbody>
+        <aura:if isTrue="{!not(empty(v.rowFilter))}">
+            <aura:iteration items="{!v.rowFilter}" var="filter">
+                <aura:iteration items="{!v.resInfo}" var="res">
+                    <aura:if isTrue="{!filter == res.type}">
+                            <tr>
+                                <aura:iteration items="{!v.columnAttributeName}" var="column">
+                                    <td scope="col">
+                                        <c:lte_GetDynamicValue parseObject = "{!res}" property = "{!column}"></c:lte_GetDynamicValue>
+                                    </td>
+                                </aura:iteration>
+                            </tr>
+                    </aura:if>
+                </aura:iteration>
+            </aura:iteration>
+            <aura:set attribute="else">
+                <aura:iteration items="{!v.resInfo}" var="res">
+                    <tr>
+                        <aura:iteration items="{!v.columnAttributeName}" var="column">
+                            <td scope="col">
+                                <c:lte_GetDynamicValue parseObject = "{!res}" property = "{!column}"></c:lte_GetDynamicValue>
+                            </td>
+                        </aura:iteration>
+                    </tr>
+                </aura:iteration>
+            </aura:set>
+        </aura:if>
+        
+    </tbody>
+</table>
+
+</aura:component>
