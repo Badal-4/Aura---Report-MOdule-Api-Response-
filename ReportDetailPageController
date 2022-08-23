@@ -1,73 +1,91 @@
 ({
+/*
+Type : Callback Method
+Purpose : Used to get report data of opened report and set columns according to api response
+*/ 
 doInit : function(component,event,helper)
 {
     var paramsData = window.location.href.split('?');
       var rcdID  = paramsData[1].split('=')[1];
-      component.set("v.reportId",rcdID);
       var action = component.get("c.getReportDetails");
       action.setParams({
-         "reportId" : component.get("v.reportId")
+         "reportId" : rcdID
       });
       action.setCallback(this,function(response)
       {
           var state = response.getState();
           if(state === "SUCCESS")
           {
-             //var result=JSON.parse(JSON.stringify(response.getReturnValue()));
-             var result = response.getReturnValue();
-             if(result){
-                console.log('result :: '+JSON.stringify(result.response));
-                var r = JSON.parse(result.response);
-                component.set("v.resInfo",r);
-                if(!$A.util.isEmpty(result.report.ColumnsName__c) && !$A.util.isEmpty(result.report.ColumnAttributeName__c)){
-                    var cName = result.report.ColumnsName__c;
-                    component.set("v.columnName",cName.split(","));
-                    var cAttributeName = result.report.ColumnAttributeName__c;
-                    component.set("v.columnAttributeName",cAttributeName.split(","));
-                    var rowFilter = result.report.Row_Filter__c;
-                    component.set("v.rowFilter",rowFilter.split(","));
-                    var columnsOrientation = result.report.Columns_Orientation__c;
-                    component.set("v.columnsOrientation",columnsOrientation.split(","));
+            try{
+                var result = response.getReturnValue();
+                if(result && result.response){
+                    var r = JSON.parse(result.response);
+                    component.set("v.resInfo",r);
+                    component.set("v.report",result.report);
+                    var attribute = [];
+                    var orientation = [];
+                    if(!$A.util.isEmpty(result.report.ColumnsName__c) && !$A.util.isEmpty(result.report.ColumnAttributeName__c)){
+                        var cName = result.report.ColumnsName__c;
+                        if(cName){
+                            component.set("v.columnName",cName.split(","));
+                        }
+                        var cAttributeName = result.report.ColumnAttributeName__c;
+                        if(cAttributeName){
+                            attribute = cAttributeName.split(",");
+                        }
+                        var rowFilter = result.report.Row_Filter__c;
+                        if(rowFilter){
+                            component.set("v.rowFilter",rowFilter.split(","));
+                        }
+                        var columnsOrientation = result.report.Columns_Orientation__c;
+                        if(columnsOrientation){
+                            orientation = columnsOrientation.split(",");
+                        }
+                        if(columnsOrientation && cAttributeName){
+                            var columnAttrOrientation = [];
+                            
+                            for(var i=0; i<attribute.length; i++){
+                                for(var j=0;j<orientation.length;j++){
+                                    if(i==j){
+                                        var obj = {};
+                                        obj['Name'] = attribute[i];
+                                        obj['orientation'] = orientation[j];
+                                        columnAttrOrientation.push(obj);
+                                    }
+                                }
+                            }
+                            component.set("v.columnAttributeName",columnAttrOrientation);
+                        }
+                    }
                 }
-             }             
+            } catch(err) {
+                console.log('--error-- '+err.message);
+            }         
           }
-          else 
-          {
+          else {
               console.log('Error update-->'+JSON.stringify(response.getError()));
           }
       });
       $A.enqueueAction(action);   
 },
+/*
+Type : Action Method
+Purpose : Used to handle csv download functionality
+*/ 
 	handleClick : function(component, event, helper) {
-	  // Variable to store the final csv data
-            var csv_data = [];
- 
-            // Get each row data
-            var rows = document.getElementsByTagName('tr');
-        
-            for (var i = 0; i < rows.length; i++) {
- 
-                // Get each column data
-                var cols = rows[i].querySelectorAll('td,th');
- 
-                // Stores each csv row data
-                var csvrow = [];
-                for (var j = 0; j < cols.length; j++) {
- 
-                    // Get the text data of each cell
-                    // of a row and push it to csvrow
-                    csvrow.push(cols[j].innerHTML);
-                }
- 
-                // Combine each column value with comma
-                csv_data.push(csvrow.join(","));
+        var csv_data = [];
+        var rows = document.getElementsByTagName('tr');
+        for (var i = 0; i < rows.length; i++) {
+            var cols = rows[i].querySelectorAll('td,th');
+            var csvrow = [];
+            for (var j = 0; j < cols.length; j++) {
+                var col_value = cols[j].innerHTML.replace(/&amp;/g, '&');
+                csvrow.push('"'+col_value+'"');
             }
- 
-            // Combine each row data with new line character
-            csv_data = csv_data.join('\n');
-             console.log('Data-->'+JSON.stringify(csv_data));
+            csv_data.push(csvrow.join(","));
+        }
+        csv_data = csv_data.join('\n');
         var rcd = csv_data;
-        console.log('rcd-->'+rcd);
         helper.downloadCsv(component,helper,rcd);
 	},
     
